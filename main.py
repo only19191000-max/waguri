@@ -1,9 +1,26 @@
+import sys
+import subprocess
+
+# ----------------- [0. 필수 라이브러리 자동 설치 로직] -----------------
+def install_package(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+try:
+    import google.generativeai as genai
+except ModuleNotFoundError:
+    install_package("google-generativeai")
+    import google.generativeai as genai
+
+try:
+    from PIL import Image
+except ModuleNotFoundError:
+    install_package("Pillow")
+    from PIL import Image
+
 import streamlit as st
-from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import datetime
 import json
-import google.generativeai as genai
 
 # ----------------- [1. 페이지 기본 및 디자인 설정] -----------------
 st.set_page_config(
