@@ -1,26 +1,9 @@
-import sys
-import subprocess
-
-# ----------------- [0. 필수 라이브러리 자동 설치 로직] -----------------
-def install_package(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-try:
-    import google.generativeai as genai
-except ModuleNotFoundError:
-    install_package("google-generativeai")
-    import google.generativeai as genai
-
-try:
-    from PIL import Image
-except ModuleNotFoundError:
-    install_package("Pillow")
-    from PIL import Image
-
 import streamlit as st
+from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import datetime
 import json
+import google.generativeai as genai
 
 # ----------------- [1. 페이지 기본 및 디자인 설정] -----------------
 st.set_page_config(
@@ -91,7 +74,6 @@ st.markdown("""
 
 # ----------------- [2. 헬퍼 함수 정의] -----------------
 
-# EXIF 메타데이터에서 위경도 정보 추출 함수 (JPG/PNG 예외 처리 보완)
 def extract_lat_lon(image):
     try:
         if hasattr(image, '_getexif'):
@@ -104,7 +86,6 @@ def extract_lat_lon(image):
         pass
     return "37.5665° N, 126.9780° E (기본 자동 입력 위치)"
 
-# Gemini LLM 호출을 통한 개미 판별 함수
 def analyze_ant_with_llm(api_key, image, location, size, date_str, time_str, temp, humidity):
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
@@ -140,39 +121,32 @@ def analyze_ant_with_llm(api_key, image, location, size, date_str, time_str, tem
 
 st.markdown("<div class='app-title'>🐜 스마트 개미 판별 시스템</div>", unsafe_allow_html=True)
 
-# 사이드바: API Key 입력 영역
 api_key = st.sidebar.text_input("Gemini API Key 입력", type="password", help="Google AI Studio에서 발급받은 API 키를 입력하세요.")
 
 st.subheader("📋 개미 채집 정보 입력")
 
-# 1. 개미 사진 업로드
 uploaded_file = st.file_uploader("1. 개미 사진 업로드 (PNG, JPG)", type=["png", "jpg", "jpeg"])
 
 location_info = ""
 img = None
 if uploaded_file is not None:
     try:
-        # PNG 투명도(RGBA) 오류 방지를 위해 RGB 변환 처리
         img = Image.open(uploaded_file).convert("RGB")
         st.image(img, caption="업로드된 개미 사진", use_container_width=True)
         location_info = extract_lat_lon(img)
     except Exception as e:
         st.error(f"이미지 파일 처리 중 오류가 발생했습니다: {e}")
 
-# 2. 채집 위치 표시
 st.text_input("2. 채집 위치 (위경도)", value=location_info, disabled=True, placeholder="사진을 업로드하면 위치가 자동으로 추출됩니다.")
 
-# 3. 개미 크기 입력
 size = st.number_input("3. 개미 크기 (mm)", min_value=0.0, max_value=100.0, step=0.1, value=0.0)
 
-# 4. 채집 날짜 및 시간
 col1, col2 = st.columns(2)
 with col1:
     collect_date = st.date_input("4. 채집 날짜", datetime.date.today())
 with col2:
     collect_time = st.time_input("채집 시간", datetime.datetime.now().time())
 
-# 5. 날씨 정보 입력
 col3, col4 = st.columns(2)
 with col3:
     temp = st.number_input("5. 온도 (℃)", value=0.0, step=0.1)
@@ -186,7 +160,6 @@ submit_btn = st.button("개미 종류 AI 판별하기", use_container_width=True
 if submit_btn:
     missing_fields = []
     
-    # 필수 항목 입력 여부 검증
     if uploaded_file is None:
         missing_fields.append("개미 사진")
     if size <= 0.0:
@@ -196,7 +169,6 @@ if submit_btn:
     if not api_key:
         missing_fields.append("Gemini API Key")
 
-    # 오류 검증 UI 조건 반영 (붉은색 경고 + 개수 카운팅)
     if missing_fields:
         missing_count = len(missing_fields)
         st.markdown(
@@ -209,7 +181,6 @@ if submit_btn:
             unsafe_allow_html=True
         )
     else:
-        # LLM 분석 실행 (스피너 표시)
         with st.spinner("AI(Gemini)가 개미 사진과 메타데이터를 분석 중입니다..."):
             result = analyze_ant_with_llm(
                 api_key=api_key,
@@ -222,11 +193,9 @@ if submit_btn:
                 humidity=humidity
             )
             
-        # ----------------- [5. 결과 화면 영역] -----------------
         if result:
             st.success("판별이 완료되었습니다!")
             
-            # 결과 카드 UI
             st.markdown(f"""
                 <div class='result-card'>
                     <div style='color: #3D522F; font-size: 14px; font-weight: bold;'>판별 결과</div>
@@ -238,6 +207,5 @@ if submit_btn:
             
             st.write("")
             st.write("**🌐 인터넷 대표 개미 참고 사진**")
-            # 대표 개미 사진 출력
             sample_url = result.get('sample_image_url', 'https://images.unsplash.com/photo-1588611910629-373323067888')
             st.image(sample_url, caption=f"참고 이미지: {result.get('common_name')} ({result.get('scientific_name')})", use_container_width=True)
