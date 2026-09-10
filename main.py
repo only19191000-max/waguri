@@ -1,9 +1,12 @@
+streamlit
+Pillow
+google-generativeai
 import streamlit as st
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import datetime
 import json
-import google-generativeai as gemini
+import google.generativeai as genai
 
 # ----------------- [1. 페이지 기본 및 디자인 설정] -----------------
 st.set_page_config(
