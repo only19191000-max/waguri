@@ -3,7 +3,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import datetime
 import json
-import google.generativeai as genai
+import google generativeai as genai
 
 # ----------------- [1. 페이지 기본 및 디자인 설정] -----------------
 st.set_page_config(
