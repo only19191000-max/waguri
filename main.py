@@ -1,6 +1,3 @@
-streamlit
-Pillow
-google-generativeai
 import streamlit as st
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -64,7 +61,7 @@ st.markdown("""
         margin-bottom: 4px;
     }
     
-    /* 개미 학명 (이탤릭체/기울임꼴 필수 적용) */
+    /* 개미 학명 */
     .scientific-name {
         font-style: italic;
         color: #4A5568;
@@ -76,7 +73,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- [2. 헬퍼 함수 정의] -----------------
-
 def extract_lat_lon(image):
     try:
         if hasattr(image, '_getexif'):
@@ -103,15 +99,14 @@ def analyze_ant_with_llm(api_key, image, location, size, date_str, time_str, tem
     - 채집 일시: {date_str} {time_str}
     - 날씨 조건: 온도 {temp}℃, 습도 {humidity}%
 
-    응답은 반드시 아래 JSON 구조만 정형화하여 답변해 주세요 (마크다운 특수문자 금지, Pure JSON):
+    응답은 반드시 아래 JSON 구조만 정형화하여 답변해 주세요:
     {{
-        "common_name": "개미 한국어 국명 (예: 가시개미)",
-        "scientific_name": "개미 라틴어 학명 (예: Polyrhachis vicina)",
-        "sample_image_url": "해당 개미 종의 고화질 참고 이미지 URL (없을 경우 https://images.unsplash.com/photo-1588611910629-373323067888 사용)",
+        "common_name": "개미 한국어 국명",
+        "scientific_name": "개미 라틴어 학명",
+        "sample_image_url": "해당 개미 종의 고화질 참고 이미지 URL",
         "description": "특징 설명 1~2문장"
     }}
     """
-    
     try:
         response = model.generate_content([prompt, image])
         cleaned_json = response.text.replace("```json", "").replace("```", "").strip()
@@ -121,10 +116,9 @@ def analyze_ant_with_llm(api_key, image, location, size, date_str, time_str, tem
         return None
 
 # ----------------- [3. 메인 UI 화면] -----------------
-
 st.markdown("<div class='app-title'>🐜 스마트 개미 판별 시스템</div>", unsafe_allow_html=True)
 
-api_key = st.sidebar.text_input("Gemini API Key 입력", type="password", help="Google AI Studio에서 발급받은 API 키를 입력하세요.")
+api_key = st.sidebar.text_input("Gemini API Key 입력", type="password")
 
 st.subheader("📋 개미 채집 정보 입력")
 
@@ -140,9 +134,8 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"이미지 파일 처리 중 오류가 발생했습니다: {e}")
 
-st.text_input("2. 채집 위치 (위경도)", value=location_info, disabled=True, placeholder="사진을 업로드하면 위치가 자동으로 추출됩니다.")
-
-size = st.number_input("3. 개미 크기 (mm)", min_value=0.0, max_value=100.0, step=0.1, value=0.0)
+st.text_input("2. 채집 위치 (위경도)", value=location_info, disabled=True)
+size = st.number_input("3. 개미 크기 (mm)", min_value=0.0, step=0.1)
 
 col1, col2 = st.columns(2)
 with col1:
@@ -152,63 +145,32 @@ with col2:
 
 col3, col4 = st.columns(2)
 with col3:
-    temp = st.number_input("5. 온도 (℃)", value=0.0, step=0.1)
+    temp = st.number_input("5. 온도 (℃)", step=0.1)
 with col4:
-    humidity = st.number_input("습도 (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0)
+    humidity = st.number_input("습도 (%)", min_value=0.0, step=1.0)
 
-# ----------------- [4. 오류 검증 및 LLM 실행] -----------------
-
+# ----------------- [4. 판별 실행 및 결과 출력] -----------------
 submit_btn = st.button("개미 종류 AI 판별하기", use_container_width=True)
 
 if submit_btn:
     missing_fields = []
-    
-    if uploaded_file is None:
-        missing_fields.append("개미 사진")
-    if size <= 0.0:
-        missing_fields.append("개미 크기")
-    if temp == 0.0 and humidity == 0.0:
-        missing_fields.append("날씨(온도/습도)")
-    if not api_key:
-        missing_fields.append("Gemini API Key")
+    if uploaded_file is None: missing_fields.append("개미 사진")
+    if size <= 0.0: missing_fields.append("개미 크기")
+    if temp == 0.0 and humidity == 0.0: missing_fields.append("날씨(온도/습도)")
+    if not api_key: missing_fields.append("Gemini API Key")
 
     if missing_fields:
-        missing_count = len(missing_fields)
-        st.markdown(
-            f"""
-            <div class='error-alert'>
-                ⚠️ <b>정보를 입력해 주세요</b><br>
-                누락된 항목이 <b>{missing_count}개</b> 있습니다: ({', '.join(missing_fields)})
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown(f"<div class='error-alert'>⚠️ <b>누락 항목:</b> {', '.join(missing_fields)}</div>", unsafe_allow_html=True)
     else:
-        with st.spinner("AI(Gemini)가 개미 사진과 메타데이터를 분석 중입니다..."):
-            result = analyze_ant_with_llm(
-                api_key=api_key,
-                image=img,
-                location=location_info,
-                size=size,
-                date_str=str(collect_date),
-                time_str=str(collect_time),
-                temp=temp,
-                humidity=humidity
-            )
+        with st.spinner("AI가 분석 중입니다..."):
+            result = analyze_ant_with_llm(api_key, img, location_info, size, str(collect_date), str(collect_time), temp, humidity)
             
         if result:
-            st.success("판별이 완료되었습니다!")
-            
+            st.success("판별 완료!")
             st.markdown(f"""
                 <div class='result-card'>
-                    <div style='color: #3D522F; font-size: 14px; font-weight: bold;'>판별 결과</div>
                     <div class='common-name'>{result.get('common_name', '알 수 없음')}</div>
-                    <div class='scientific-name'>{result.get('scientific_name', 'Unknown species')}</div>
-                    <p style='color: #718096; font-size: 14px;'>{result.get('description', '')}</p>
+                    <div class='scientific-name'>{result.get('scientific_name', 'Unknown')}</div>
+                    <p>{result.get('description', '')}</p>
                 </div>
             """, unsafe_allow_html=True)
-            
-            st.write("")
-            st.write("**🌐 인터넷 대표 개미 참고 사진**")
-            sample_url = result.get('sample_image_url', 'https://images.unsplash.com/photo-1588611910629-373323067888')
-            st.image(sample_url, caption=f"참고 이미지: {result.get('common_name')} ({result.get('scientific_name')})", use_container_width=True)
